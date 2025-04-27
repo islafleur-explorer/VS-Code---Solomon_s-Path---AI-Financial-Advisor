@@ -1,5 +1,5 @@
 /**
- * API service for communicating with the backend
+ * API service for communicating with the SolomonSays backend
  */
 
 const API_URL = 'http://localhost:8000';
@@ -46,5 +46,56 @@ export const checkApiAvailability = async () => {
   } catch (error) {
     console.error('SolomonSays API is not available:', error);
     return false;
+  }
+};
+
+/**
+ * Get information about the RAG system
+ * @returns {Promise} - Promise resolving to system information
+ */
+export const getSystemInfo = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/system-info`);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to get system information');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting system information:', error);
+    throw error;
+  }
+};
+
+/**
+ * Ingest content into the RAG system
+ * @param {string} contentSource - Path or URL to the content
+ * @param {string} sourceType - Type of content source ('json', 'url', 'pdf', 'csv')
+ * @returns {Promise} - Promise resolving to the ingestion result
+ */
+export const ingestContent = async (contentSource, sourceType = 'json') => {
+  try {
+    const response = await fetch(`${API_URL}/api/ingest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content_source: contentSource,
+        source_type: sourceType,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to ingest content');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error ingesting content:', error);
+    throw error;
   }
 };

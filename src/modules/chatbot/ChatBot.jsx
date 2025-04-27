@@ -96,18 +96,36 @@ const ChatBot = () => {
         const botResponse = {
           sender: 'bot',
           message: response.answer,
-          timestamp: new Date()
+          timestamp: new Date(),
+          confidence: response.confidence
         };
 
         setConversation(prev => [...prev, botResponse]);
 
-        // Store sources if available
-        if (response.sources && response.sources.length > 0) {
+        // Store citations if available
+        if (response.citations && response.citations.length > 0) {
+          setSources(response.citations);
+          setShowSources(true);
+        } else if (response.sources && response.sources.length > 0) {
+          // Backward compatibility with old API format
           setSources(response.sources);
           setShowSources(true);
         } else {
           setSources([]);
           setShowSources(false);
+        }
+
+        // If there are follow-up questions, suggest them
+        if (response.follow_up_questions && response.follow_up_questions.length > 0) {
+          setTimeout(() => {
+            const suggestionsResponse = {
+              sender: 'bot',
+              message: "You might also want to ask:",
+              suggestions: response.follow_up_questions,
+              timestamp: new Date()
+            };
+            setConversation(prev => [...prev, suggestionsResponse]);
+          }, 1000);
         }
       } else {
         // Fall back to hardcoded responses if API is not available
@@ -260,6 +278,47 @@ const ChatBot = () => {
                       }}
                     >
                       <Typography variant="body2">{msg.message}</Typography>
+
+                      {/* Display follow-up suggestions if available */}
+                      {msg.suggestions && msg.suggestions.length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          {msg.suggestions.map((suggestion, idx) => (
+                            <Button
+                              key={idx}
+                              size="small"
+                              variant="outlined"
+                              sx={{
+                                mr: 1,
+                                mb: 1,
+                                fontSize: '0.75rem',
+                                textTransform: 'none'
+                              }}
+                              onClick={() => {
+                                setInput(suggestion);
+                                // Focus the input field
+                                document.querySelector('input[type="text"]').focus();
+                              }}
+                            >
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </Box>
+                      )}
+
+                      {/* Display confidence if available */}
+                      {msg.confidence !== undefined && (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            display: 'block',
+                            mt: 1,
+                            color: 'text.secondary',
+                            fontSize: '0.7rem'
+                          }}
+                        >
+                          Confidence: {Math.round(msg.confidence * 100)}%
+                        </Typography>
+                      )}
                     </Paper>
                   </ListItem>
                   {index < conversation.length - 1 && (
@@ -290,16 +349,25 @@ const ChatBot = () => {
                 {sources.map((source, index) => (
                   <ListItem key={index} sx={{ py: 0.5 }}>
                     <Typography variant="body2">
-                      {source.metadata.title || 'Source'}
-                      {source.metadata.url && (
+                      {source.source_title || source.metadata?.title || 'Source'}
+                      {(source.source_url || source.metadata?.url) && (
                         <Link
-                          href={source.metadata.url}
+                          href={source.source_url || source.metadata?.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           sx={{ ml: 1, fontSize: '0.8rem' }}
                         >
                           [Link]
                         </Link>
+                      )}
+                      {source.relevance && (
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          sx={{ ml: 1, color: 'text.secondary' }}
+                        >
+                          (Relevance: {Math.round(source.relevance * 100)}%)
+                        </Typography>
                       )}
                     </Typography>
                   </ListItem>
