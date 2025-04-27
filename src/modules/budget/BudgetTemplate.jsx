@@ -15,6 +15,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { useBudget } from './BudgetContext';
 import BudgetCategory from './BudgetCategory';
 import MonthSelector from './MonthSelector';
+import BudgetPieChart from './BudgetPieChart';
 
 export default function BudgetTemplate() {
   const {
@@ -98,6 +99,9 @@ export default function BudgetTemplate() {
           {formatCurrency(summary.balance)} left to budget
         </Typography>
       </Paper>
+
+      {/* 50/30/20 Budget Rule Pie Chart */}
+      <BudgetPieChart />
 
       {/* Budget Categories */}
       {budgetTemplate.map((category) => (
