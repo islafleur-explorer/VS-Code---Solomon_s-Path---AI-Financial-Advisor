@@ -11,14 +11,19 @@ import {
   Chip,
   Button,
   Collapse,
-  Fade
+  Fade,
+  CircularProgress,
+  Link,
+  Tooltip
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
 import ChatIcon from '@mui/icons-material/Chat';
+import InfoIcon from '@mui/icons-material/Info';
 import { getFinancialResponse } from './chatbotResponses';
+import { sendQuery, checkApiAvailability } from '../../services/api';
 
 const ChatBot = () => {
   const [open, setOpen] = useState(false);
@@ -30,7 +35,21 @@ const ChatBot = () => {
       timestamp: new Date()
     }
   ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiAvailable, setApiAvailable] = useState(false);
+  const [sources, setSources] = useState([]);
+  const [showSources, setShowSources] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Check if the API is available when the component mounts
+  useEffect(() => {
+    const checkApi = async () => {
+      const isAvailable = await checkApiAvailability();
+      setApiAvailable(isAvailable);
+    };
+
+    checkApi();
+  }, []);
 
   // Scroll to bottom of chat whenever conversation updates
   useEffect(() => {
@@ -47,9 +66,9 @@ const ChatBot = () => {
     setInput(e.target.value);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (input.trim() === '') return;
+    if (input.trim() === '' || isLoading) return;
 
     // Add user message to conversation
     const userMessage = {
@@ -59,19 +78,73 @@ const ChatBot = () => {
     };
 
     setConversation(prev => [...prev, userMessage]);
+    setIsLoading(true);
 
-    // Get bot response
-    setTimeout(() => {
-      const botResponse = {
+    try {
+      // Try to get response from the API if it's available
+      if (apiAvailable) {
+        // Format conversation history for the API
+        const chatHistory = conversation.map(msg => ({
+          sender: msg.sender,
+          message: msg.message
+        }));
+
+        // Send query to the API
+        const response = await sendQuery(input, chatHistory);
+
+        // Add bot response to conversation
+        const botResponse = {
+          sender: 'bot',
+          message: response.answer,
+          timestamp: new Date()
+        };
+
+        setConversation(prev => [...prev, botResponse]);
+
+        // Store sources if available
+        if (response.sources && response.sources.length > 0) {
+          setSources(response.sources);
+          setShowSources(true);
+        } else {
+          setSources([]);
+          setShowSources(false);
+        }
+      } else {
+        // Fall back to hardcoded responses if API is not available
+        setTimeout(() => {
+          const botResponse = {
+            sender: 'bot',
+            message: getFinancialResponse(input),
+            timestamp: new Date()
+          };
+          setConversation(prev => [...prev, botResponse]);
+        }, 500); // Small delay to make it feel more natural
+      }
+    } catch (error) {
+      console.error('Error getting response:', error);
+
+      // Add error message to conversation
+      const errorResponse = {
         sender: 'bot',
-        message: getFinancialResponse(input),
+        message: "I'm having trouble connecting to my knowledge base. Let me try to answer with what I know.",
         timestamp: new Date()
       };
-      setConversation(prev => [...prev, botResponse]);
-    }, 500); // Small delay to make it feel more natural
 
-    // Clear input
-    setInput('');
+      setConversation(prev => [...prev, errorResponse]);
+
+      // Fall back to hardcoded responses
+      setTimeout(() => {
+        const fallbackResponse = {
+          sender: 'bot',
+          message: getFinancialResponse(input),
+          timestamp: new Date()
+        };
+        setConversation(prev => [...prev, fallbackResponse]);
+      }, 500);
+    } finally {
+      setIsLoading(false);
+      setInput('');
+    }
   };
 
   const formatTime = (date) => {
@@ -126,9 +199,9 @@ const ChatBot = () => {
               <Typography variant="h6">SolomonSays</Typography>
             </Box>
             <Chip
-              label="Preview Mode"
+              label={apiAvailable ? "RAG Enabled" : "Preview Mode"}
               size="small"
-              color="warning"
+              color={apiAvailable ? "success" : "warning"}
               sx={{ mr: 1 }}
             />
             <IconButton size="small" color="inherit" onClick={toggleChat}>
@@ -198,6 +271,43 @@ const ChatBot = () => {
             </List>
           </Box>
 
+          {/* Sources section */}
+          {showSources && sources.length > 0 && (
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: '#f0f7ff',
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                maxHeight: '150px',
+                overflowY: 'auto'
+              }}
+            >
+              <Typography variant="subtitle2" gutterBottom>
+                Sources:
+              </Typography>
+              <List dense>
+                {sources.map((source, index) => (
+                  <ListItem key={index} sx={{ py: 0.5 }}>
+                    <Typography variant="body2">
+                      {source.metadata.title || 'Source'}
+                      {source.metadata.url && (
+                        <Link
+                          href={source.metadata.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ ml: 1, fontSize: '0.8rem' }}
+                        >
+                          [Link]
+                        </Link>
+                      )}
+                    </Typography>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+
           {/* Chat input */}
           <Box
             component="form"
@@ -217,15 +327,22 @@ const ChatBot = () => {
               variant="outlined"
               value={input}
               onChange={handleInputChange}
+              disabled={isLoading}
               sx={{ mr: 1 }}
             />
-            <IconButton
-              color="primary"
-              type="submit"
-              disabled={input.trim() === ''}
-            >
-              <SendIcon />
-            </IconButton>
+            {isLoading ? (
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : (
+              <IconButton
+                color="primary"
+                type="submit"
+                disabled={input.trim() === ''}
+              >
+                <SendIcon />
+              </IconButton>
+            )}
           </Box>
         </Paper>
       </Collapse>
