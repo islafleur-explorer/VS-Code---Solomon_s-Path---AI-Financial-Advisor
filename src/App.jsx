@@ -15,6 +15,21 @@ const theme = createTheme({
     secondary: {
       main: '#f50057',
     },
+    success: {
+      main: '#2ecc71',
+      light: '#e8f5e9',
+    },
+    info: {
+      main: '#2196f3',
+      light: '#e3f2fd',
+    },
+    error: {
+      main: '#f44336',
+      light: '#ffebee',
+    },
+    header: {
+      main: '#1976d2',
+    }
   },
 });
 

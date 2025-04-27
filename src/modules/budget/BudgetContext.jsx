@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import { useAuth } from '../auth';
+import { BUDGET_TEMPLATE } from './budgetTemplateData';
 
 // Create the budget context
 const BudgetContext = createContext();
@@ -7,82 +8,321 @@ const BudgetContext = createContext();
 // Custom hook to use the budget context
 export const useBudget = () => useContext(BudgetContext);
 
-// Default budget categories
-const DEFAULT_CATEGORIES = [
-  { id: '1', name: 'Housing', type: 'expense' },
-  { id: '2', name: 'Transportation', type: 'expense' },
-  { id: '3', name: 'Food', type: 'expense' },
-  { id: '4', name: 'Utilities', type: 'expense' },
-  { id: '5', name: 'Insurance', type: 'expense' },
-  { id: '6', name: 'Medical & Healthcare', type: 'expense' },
-  { id: '7', name: 'Savings', type: 'savings' },
-  { id: '8', name: 'Debt Payments', type: 'expense' },
-  { id: '9', name: 'Personal Spending', type: 'expense' },
-  { id: '10', name: 'Recreation & Entertainment', type: 'expense' },
-  { id: '11', name: 'Salary', type: 'income' },
-  { id: '12', name: 'Other Income', type: 'income' },
-];
-
 // Provider component that wraps the app and makes budget object available to any child component
 export function BudgetProvider({ children }) {
   const { currentUser } = useAuth();
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
-  const [budgetItems, setBudgetItems] = useState([]);
+  const [budgetTemplate, setBudgetTemplate] = useState(BUDGET_TEMPLATE);
   const [loading, setLoading] = useState(true);
+  // Initialize with the current month and year
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.toLocaleString('default', { month: 'long' }));
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [activeTab, setActiveTab] = useState('planned'); // 'planned', 'spent', 'remaining'
 
-  // Load budget data from localStorage when user changes
+  // Helper function to check if a month is in the future
+  const isMonthInFuture = (month, year) => {
+    const today = new Date();
+    const todayMonth = today.getMonth();
+    const todayYear = today.getFullYear();
+
+    // Convert month name to month index (0-11)
+    const monthNames = Array.from({ length: 12 }, (_, i) =>
+      new Date(0, i).toLocaleString('default', { month: 'long' })
+    );
+    const monthIndex = monthNames.findIndex(m => m === month);
+
+    // Compare year and month to determine if it's in the future
+    if (year > todayYear) return true;
+    if (year === todayYear && monthIndex > todayMonth) return true;
+    return false;
+  };
+
+  // Helper function to check if a month is in the past
+  const isMonthInPast = (month, year) => {
+    const today = new Date();
+    const todayMonth = today.getMonth();
+    const todayYear = today.getFullYear();
+
+    // Convert month name to month index (0-11)
+    const monthNames = Array.from({ length: 12 }, (_, i) =>
+      new Date(0, i).toLocaleString('default', { month: 'long' })
+    );
+    const monthIndex = monthNames.findIndex(m => m === month);
+
+    // Compare year and month to determine if it's in the past
+    // We consider the current month as "not past"
+    if (year < todayYear) return true;
+    if (year === todayYear && monthIndex < todayMonth) return true;
+    return false;
+  };
+
+  // Helper function to check if a month is the current month
+  const isCurrentMonth = (month, year) => {
+    const today = new Date();
+    const todayMonth = today.getMonth();
+    const todayYear = today.getFullYear();
+
+    // Convert month name to month index (0-11)
+    const monthNames = Array.from({ length: 12 }, (_, i) =>
+      new Date(0, i).toLocaleString('default', { month: 'long' })
+    );
+    const monthIndex = monthNames.findIndex(m => m === month);
+
+    return year === todayYear && monthIndex === todayMonth;
+  };
+
+  // Load budget data for the current month from localStorage
   useEffect(() => {
     if (currentUser) {
-      const storedBudget = localStorage.getItem(`budget_${currentUser.id}`);
-      if (storedBudget) {
-        setBudgetItems(JSON.parse(storedBudget));
+      const monthKey = `${currentMonth}_${currentYear}`;
+
+      // Check if this is the current month
+      if (isCurrentMonth(currentMonth, currentYear)) {
+        // For current month, load normally
+        const storedBudget = localStorage.getItem(`budget_template_${currentUser.id}_${monthKey}`);
+        if (storedBudget) {
+          setBudgetTemplate(JSON.parse(storedBudget));
+        } else {
+          // If no data for this month, check if there's a default template
+          const defaultTemplate = localStorage.getItem(`budget_template_${currentUser.id}_default`);
+          if (defaultTemplate) {
+            setBudgetTemplate(JSON.parse(defaultTemplate));
+          } else {
+            setBudgetTemplate(BUDGET_TEMPLATE);
+          }
+        }
       } else {
-        setBudgetItems([]);
+        // For future or past months, check if the user has explicitly created this month
+        const storedBudget = localStorage.getItem(`budget_template_${currentUser.id}_${monthKey}`);
+        if (storedBudget) {
+          // User has already created this month
+          setBudgetTemplate(JSON.parse(storedBudget));
+        } else {
+          // For months that haven't been created yet, show empty template
+          // Create a deep copy of BUDGET_TEMPLATE with zero amounts
+          const emptyTemplate = JSON.parse(JSON.stringify(BUDGET_TEMPLATE));
+          setBudgetTemplate(emptyTemplate);
+        }
       }
     } else {
-      setBudgetItems([]);
+      setBudgetTemplate(BUDGET_TEMPLATE);
     }
     setLoading(false);
-  }, [currentUser]);
+  }, [currentUser, currentMonth, currentYear]);
 
   // Save budget data to localStorage whenever it changes
   useEffect(() => {
     if (currentUser && !loading) {
-      localStorage.setItem(`budget_${currentUser.id}`, JSON.stringify(budgetItems));
+      const monthKey = `${currentMonth}_${currentYear}`;
+      localStorage.setItem(`budget_template_${currentUser.id}_${monthKey}`, JSON.stringify(budgetTemplate));
+
+      // Only update the default template if we're in the current month or past
+      if (!isMonthInFuture(currentMonth, currentYear)) {
+        localStorage.setItem(`budget_template_${currentUser.id}_default`, JSON.stringify(budgetTemplate));
+      }
     }
-  }, [budgetItems, currentUser, loading]);
+  }, [budgetTemplate, currentUser, loading, currentMonth, currentYear]);
 
-  // Add a new budget item
-  const addBudgetItem = (item) => {
-    const newItem = {
-      ...item,
-      id: Date.now().toString(),
-      userId: currentUser.id,
-    };
-    setBudgetItems([...budgetItems, newItem]);
-    return newItem;
+  // Create a new month's budget based on the appropriate template
+  const createNewMonthBudget = (targetMonth = currentMonth, targetYear = currentYear) => {
+    if (currentUser) {
+      const monthKey = `${targetMonth}_${targetYear}`;
+
+      // For future months, use the previous month's data if available
+      if (isMonthInFuture(targetMonth, targetYear)) {
+        // Calculate the previous month (relative to the target month)
+        const targetDate = new Date(`${targetMonth} 1, ${targetYear}`);
+        const prevDate = new Date(targetDate);
+        prevDate.setMonth(targetDate.getMonth() - 1);
+        const prevMonth = prevDate.toLocaleString('default', { month: 'long' });
+        const prevYear = prevDate.getFullYear();
+        const prevMonthKey = `${prevMonth}_${prevYear}`;
+
+        // Try to get the previous month's budget data
+        const prevMonthData = localStorage.getItem(`budget_template_${currentUser.id}_${prevMonthKey}`);
+
+        if (prevMonthData) {
+          // Use the previous month's data for this future month
+          const parsedTemplate = JSON.parse(prevMonthData);
+
+          // If we're already on the target month, update the state
+          if (targetMonth === currentMonth && targetYear === currentYear) {
+            setBudgetTemplate(parsedTemplate);
+          }
+
+          // Save it to localStorage for this month
+          localStorage.setItem(`budget_template_${currentUser.id}_${monthKey}`, JSON.stringify(parsedTemplate));
+
+          return true;
+        }
+
+        // If previous month data isn't available, fall back to current month data
+        const today = new Date();
+        const currentMonthName = today.toLocaleString('default', { month: 'long' });
+        const currentYearNum = today.getFullYear();
+        const currentMonthKey = `${currentMonthName}_${currentYearNum}`;
+
+        // Try to get the current month's budget data
+        const currentMonthData = localStorage.getItem(`budget_template_${currentUser.id}_${currentMonthKey}`);
+
+        if (currentMonthData) {
+          // Use the current month's data for this future month
+          const parsedTemplate = JSON.parse(currentMonthData);
+
+          // If we're already on the target month, update the state
+          if (targetMonth === currentMonth && targetYear === currentYear) {
+            setBudgetTemplate(parsedTemplate);
+          }
+
+          // Save it to localStorage for this month
+          localStorage.setItem(`budget_template_${currentUser.id}_${monthKey}`, JSON.stringify(parsedTemplate));
+
+          return true;
+        }
+      }
+
+      // For past months or if current month data isn't available, use the default template
+      const defaultTemplate = localStorage.getItem(`budget_template_${currentUser.id}_default`);
+      if (defaultTemplate) {
+        // Use the default template for this month
+        const parsedTemplate = JSON.parse(defaultTemplate);
+
+        // If we're already on the target month, update the state
+        if (targetMonth === currentMonth && targetYear === currentYear) {
+          setBudgetTemplate(parsedTemplate);
+        }
+
+        // Save it to localStorage for this month
+        localStorage.setItem(`budget_template_${currentUser.id}_${monthKey}`, JSON.stringify(parsedTemplate));
+
+        return true;
+      } else {
+        // If no default template exists, use the built-in template
+
+        // If we're already on the target month, update the state
+        if (targetMonth === currentMonth && targetYear === currentYear) {
+          setBudgetTemplate(BUDGET_TEMPLATE);
+        }
+
+        // Save it to localStorage for this month
+        localStorage.setItem(`budget_template_${currentUser.id}_${monthKey}`, JSON.stringify(BUDGET_TEMPLATE));
+
+        return true;
+      }
+    }
+    return false;
   };
 
-  // Update an existing budget item
-  const updateBudgetItem = (id, updatedItem) => {
-    setBudgetItems(
-      budgetItems.map((item) => (item.id === id ? { ...item, ...updatedItem } : item))
-    );
+  // Update a subcategory amount
+  const updateSubcategoryAmount = (categoryId, subcategoryId, amount) => {
+    const updatedTemplate = budgetTemplate.map(category => {
+      if (category.id === categoryId) {
+        const updatedSubcategories = category.subcategories.map(subcategory => {
+          if (subcategory.id === subcategoryId) {
+            return { ...subcategory, amount: parseFloat(amount) || 0 };
+          }
+          return subcategory;
+        });
+        return { ...category, subcategories: updatedSubcategories };
+      }
+      return category;
+    });
+    setBudgetTemplate(updatedTemplate);
   };
 
-  // Delete a budget item
-  const deleteBudgetItem = (id) => {
-    setBudgetItems(budgetItems.filter((item) => item.id !== id));
+  // Update a subcategory name
+  const updateSubcategoryName = (categoryId, subcategoryId, name) => {
+    const updatedTemplate = budgetTemplate.map(category => {
+      if (category.id === categoryId) {
+        const updatedSubcategories = category.subcategories.map(subcategory => {
+          if (subcategory.id === subcategoryId) {
+            return { ...subcategory, name };
+          }
+          return subcategory;
+        });
+        return { ...category, subcategories: updatedSubcategories };
+      }
+      return category;
+    });
+    setBudgetTemplate(updatedTemplate);
   };
 
-  // Add a new category
-  const addCategory = (category) => {
-    const newCategory = {
-      ...category,
-      id: Date.now().toString(),
-    };
-    setCategories([...categories, newCategory]);
-    return newCategory;
+  // Add a new subcategory to a main category
+  const addSubcategory = (categoryId, subcategoryName) => {
+    const updatedTemplate = budgetTemplate.map(category => {
+      if (category.id === categoryId) {
+        const newSubcategory = {
+          id: `${categoryId}-${Date.now()}`,
+          name: subcategoryName,
+          amount: 0
+        };
+        return {
+          ...category,
+          subcategories: [...category.subcategories, newSubcategory]
+        };
+      }
+      return category;
+    });
+    setBudgetTemplate(updatedTemplate);
+  };
+
+  // Delete a subcategory
+  const deleteSubcategory = (categoryId, subcategoryId) => {
+    const updatedTemplate = budgetTemplate.map(category => {
+      if (category.id === categoryId) {
+        return {
+          ...category,
+          subcategories: category.subcategories.filter(sub => sub.id !== subcategoryId)
+        };
+      }
+      return category;
+    });
+    setBudgetTemplate(updatedTemplate);
+  };
+
+  // Move a subcategory up in the list
+  const moveSubcategoryUp = (categoryId, subcategoryId) => {
+    const updatedTemplate = budgetTemplate.map(category => {
+      if (category.id === categoryId) {
+        const subcategories = [...category.subcategories];
+        const index = subcategories.findIndex(sub => sub.id === subcategoryId);
+
+        if (index > 0) {
+          // Swap with the item above
+          [subcategories[index], subcategories[index - 1]] =
+          [subcategories[index - 1], subcategories[index]];
+        }
+
+        return { ...category, subcategories };
+      }
+      return category;
+    });
+    setBudgetTemplate(updatedTemplate);
+  };
+
+  // Move a subcategory down in the list
+  const moveSubcategoryDown = (categoryId, subcategoryId) => {
+    const updatedTemplate = budgetTemplate.map(category => {
+      if (category.id === categoryId) {
+        const subcategories = [...category.subcategories];
+        const index = subcategories.findIndex(sub => sub.id === subcategoryId);
+
+        if (index < subcategories.length - 1) {
+          // Swap with the item below
+          [subcategories[index], subcategories[index + 1]] =
+          [subcategories[index + 1], subcategories[index]];
+        }
+
+        return { ...category, subcategories };
+      }
+      return category;
+    });
+    setBudgetTemplate(updatedTemplate);
+  };
+
+  // Reset the budget to default template
+  const resetBudget = () => {
+    setBudgetTemplate(BUDGET_TEMPLATE);
   };
 
   // Calculate budget summary
@@ -94,11 +334,10 @@ export function BudgetProvider({ children }) {
       balance: 0,
     };
 
-    budgetItems.forEach((item) => {
-      const category = categories.find((cat) => cat.id === item.categoryId);
-      if (category) {
-        const amount = parseFloat(item.amount) || 0;
-        
+    budgetTemplate.forEach(category => {
+      category.subcategories.forEach(subcategory => {
+        const amount = parseFloat(subcategory.amount) || 0;
+
         if (category.type === 'income') {
           summary.totalIncome += amount;
         } else if (category.type === 'expense') {
@@ -107,23 +346,74 @@ export function BudgetProvider({ children }) {
           summary.totalSavings += amount;
           summary.totalExpenses += amount; // Savings are also an expense
         }
-      }
+      });
     });
 
     summary.balance = summary.totalIncome - summary.totalExpenses;
     return summary;
   };
 
+  // Navigate to the next month
+  const goToNextMonth = () => {
+    // Get the next month and year
+    const currentDate = new Date(`${currentMonth} 1, ${currentYear}`);
+    const nextDate = new Date(currentDate);
+    nextDate.setMonth(currentDate.getMonth() + 1);
+
+    const nextMonth = nextDate.toLocaleString('default', { month: 'long' });
+    const nextYear = nextDate.getFullYear();
+
+    // Update the current month and year
+    setCurrentMonth(nextMonth);
+    setCurrentYear(nextYear);
+  };
+
+  // Navigate to the previous month
+  const goToPreviousMonth = () => {
+    // Get the previous month and year
+    const currentDate = new Date(`${currentMonth} 1, ${currentYear}`);
+    const prevDate = new Date(currentDate);
+    prevDate.setMonth(currentDate.getMonth() - 1);
+
+    const prevMonth = prevDate.toLocaleString('default', { month: 'long' });
+    const prevYear = prevDate.getFullYear();
+
+    // Update the current month and year
+    setCurrentMonth(prevMonth);
+    setCurrentYear(prevYear);
+  };
+
+  // Navigate to a specific month and year
+  const goToMonth = (month, year) => {
+    setCurrentMonth(month);
+    setCurrentYear(year);
+  };
+
   // Value object that will be passed to consumers of this context
   const value = {
-    categories,
-    budgetItems,
-    addBudgetItem,
-    updateBudgetItem,
-    deleteBudgetItem,
-    addCategory,
+    budgetTemplate,
+    updateSubcategoryAmount,
+    updateSubcategoryName,
+    addSubcategory,
+    deleteSubcategory,
+    moveSubcategoryUp,
+    moveSubcategoryDown,
+    resetBudget,
     calculateSummary,
     loading,
+    currentMonth,
+    setCurrentMonth,
+    currentYear,
+    setCurrentYear,
+    activeTab,
+    setActiveTab,
+    goToNextMonth,
+    goToPreviousMonth,
+    goToMonth,
+    isMonthInFuture,
+    isMonthInPast,
+    isCurrentMonth,
+    createNewMonthBudget
   };
 
   return (

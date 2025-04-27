@@ -1,14 +1,14 @@
-import { 
-  Paper, 
-  Typography, 
-  Grid, 
+import {
+  Paper,
+  Typography,
+  Grid,
   Box,
   Divider
 } from '@mui/material';
 import { useBudget } from './BudgetContext';
 
 export default function BudgetSummary() {
-  const { calculateSummary } = useBudget();
+  const { calculateSummary, currentMonth, currentYear } = useBudget();
   const summary = calculateSummary();
 
   // Format currency
@@ -22,9 +22,9 @@ export default function BudgetSummary() {
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" component="h2" gutterBottom>
-        Budget Summary
+        Budget Summary for {currentMonth} {currentYear}
       </Typography>
-      
+
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6} md={3}>
           <Box sx={{ textAlign: 'center', p: 2 }}>
@@ -36,7 +36,7 @@ export default function BudgetSummary() {
             </Typography>
           </Box>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Box sx={{ textAlign: 'center', p: 2 }}>
             <Typography variant="subtitle1" color="text.secondary">
@@ -47,7 +47,7 @@ export default function BudgetSummary() {
             </Typography>
           </Box>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Box sx={{ textAlign: 'center', p: 2 }}>
             <Typography variant="subtitle1" color="text.secondary">
@@ -58,14 +58,14 @@ export default function BudgetSummary() {
             </Typography>
           </Box>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Box sx={{ textAlign: 'center', p: 2 }}>
             <Typography variant="subtitle1" color="text.secondary">
               Balance
             </Typography>
-            <Typography 
-              variant="h6" 
+            <Typography
+              variant="h6"
               color={summary.balance >= 0 ? 'success.main' : 'error.main'}
             >
               {formatCurrency(summary.balance)}
@@ -73,13 +73,13 @@ export default function BudgetSummary() {
           </Box>
         </Grid>
       </Grid>
-      
+
       <Divider sx={{ my: 2 }} />
-      
+
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          {summary.balance >= 0 
-            ? 'You are on track with your budget!' 
+          {summary.balance >= 0
+            ? 'You are on track with your budget!'
             : 'You are spending more than your income. Consider adjusting your budget.'}
         </Typography>
       </Box>
