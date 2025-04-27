@@ -1,3 +1,5 @@
+import financialKnowledgeBase from './financialKnowledgeBase';
+
 // Hardcoded responses for common financial questions
 const responses = [
   {
@@ -65,17 +67,102 @@ const responses = [
 // Default response when no matching keywords are found
 const defaultResponse = "I'm still learning about financial topics. For more detailed information on this topic, I recommend consulting a financial advisor or checking reputable financial education websites like Investopedia or NerdWallet.";
 
+// Function to search the knowledge base for relevant information
+const searchKnowledgeBase = (input) => {
+  const lowercaseInput = input.toLowerCase();
+  let bestMatch = null;
+  let bestScore = 0;
+
+  // Define categories and their keywords for searching
+  const categories = {
+    budgeting: ['budget', 'spending', 'expense', 'track', '50/30/20', 'envelope', 'zero-based'],
+    debt: ['debt', 'loan', 'credit card', 'mortgage', 'student loan', 'snowball', 'avalanche'],
+    savings: ['save', 'saving', 'emergency fund', 'rainy day', 'sinking fund'],
+    investing: ['invest', 'investment', 'retirement', '401k', 'ira', 'roth', 'stock', 'bond', 'etf', 'mutual fund'],
+    familyFinance: ['family', 'child', 'kid', 'baby', 'education', 'college', 'childcare', 'daycare', '529'],
+    housing: ['house', 'home', 'mortgage', 'rent', 'apartment', 'down payment', 'property'],
+    insurance: ['insurance', 'life insurance', 'health insurance', 'disability', 'term', 'whole life'],
+    taxes: ['tax', 'taxes', 'deduction', 'credit', 'refund', 'irs', 'filing'],
+    income: ['income', 'salary', 'wage', 'raise', 'promotion', 'side hustle', 'gig', 'freelance']
+  };
+
+  // Search each category
+  for (const [category, keywords] of Object.entries(categories)) {
+    // Calculate match score based on keyword presence
+    const matchCount = keywords.reduce((count, keyword) => {
+      return count + (lowercaseInput.includes(keyword) ? 1 : 0);
+    }, 0);
+
+    const score = matchCount / keywords.length;
+
+    // If this category has a better match, update bestMatch
+    if (score > bestScore && score > 0) {
+      bestScore = score;
+      bestMatch = category;
+    }
+  }
+
+  // If we found a matching category, look for specific subcategories
+  if (bestMatch && financialKnowledgeBase[bestMatch]) {
+    const categoryData = financialKnowledgeBase[bestMatch];
+
+    // Look for the most relevant subcategory
+    let bestSubcategory = null;
+    let bestSubcategoryContent = null;
+
+    for (const [subcategory, content] of Object.entries(categoryData)) {
+      // For now, just return the first subcategory we find
+      // In a more sophisticated implementation, we would score subcategories too
+      bestSubcategory = subcategory;
+      bestSubcategoryContent = content;
+      break;
+    }
+
+    if (bestSubcategoryContent) {
+      // Format the response based on the content structure
+      if (typeof bestSubcategoryContent.content === 'string') {
+        return `${bestSubcategoryContent.title}: ${bestSubcategoryContent.content}${bestSubcategoryContent.source ? `\n\nSource: ${bestSubcategoryContent.source}` : ''}`;
+      } else if (Array.isArray(bestSubcategoryContent.content)) {
+        // Handle array content (like lists of strategies)
+        let response = `${bestSubcategoryContent.title}:\n\n`;
+
+        bestSubcategoryContent.content.forEach(item => {
+          if (item.name) {
+            response += `• ${item.name}: ${item.description}\n`;
+          } else {
+            response += `• ${item}\n`;
+          }
+        });
+
+        if (bestSubcategoryContent.source) {
+          response += `\nSource: ${bestSubcategoryContent.source}`;
+        }
+
+        return response;
+      }
+    }
+  }
+
+  return null;
+};
+
 // Function to get a response based on user input
 export const getFinancialResponse = (input) => {
   const lowercaseInput = input.toLowerCase();
 
-  // Check if input contains any keywords from our responses
+  // First check if input contains any keywords from our hardcoded responses
   for (const item of responses) {
     if (item.keywords.some(keyword => lowercaseInput.includes(keyword))) {
       return item.response;
     }
   }
 
-  // If no matching keywords, return default response
+  // If no hardcoded response matches, search the knowledge base
+  const knowledgeBaseResponse = searchKnowledgeBase(input);
+  if (knowledgeBaseResponse) {
+    return knowledgeBaseResponse;
+  }
+
+  // If no matching keywords in hardcoded responses or knowledge base, return default response
   return defaultResponse;
 };

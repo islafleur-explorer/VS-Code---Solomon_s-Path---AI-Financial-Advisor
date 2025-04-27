@@ -8,9 +8,10 @@ const API_URL = 'http://localhost:8000';
  * Send a query to the SolomonSays RAG system
  * @param {string} query - The user's question
  * @param {Array} chatHistory - Array of previous chat messages
+ * @param {Object} userContext - User context information
  * @returns {Promise} - Promise resolving to the response from the RAG system
  */
-export const sendQuery = async (query, chatHistory = []) => {
+export const sendQuery = async (query, chatHistory = [], userContext = {}) => {
   try {
     const response = await fetch(`${API_URL}/api/query`, {
       method: 'POST',
@@ -20,6 +21,7 @@ export const sendQuery = async (query, chatHistory = []) => {
       body: JSON.stringify({
         query,
         chat_history: chatHistory,
+        user_context: userContext,
       }),
     });
 
