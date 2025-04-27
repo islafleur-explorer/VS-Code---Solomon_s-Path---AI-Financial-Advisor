@@ -5,6 +5,7 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { AuthProvider, Login, Register, ProtectedRoute } from './modules/auth';
 import { BudgetProvider } from './modules/budget';
 import { Layout, Dashboard, BudgetPage, HomePage } from './modules/ui';
+import { ChatBot } from './modules/chatbot';
 
 // Create theme
 const theme = createTheme({
@@ -58,6 +59,7 @@ function App() {
               </Route>
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            <ChatBot />
           </Router>
         </BudgetProvider>
       </AuthProvider>
