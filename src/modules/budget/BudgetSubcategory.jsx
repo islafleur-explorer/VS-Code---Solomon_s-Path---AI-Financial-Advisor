@@ -13,18 +13,21 @@ import {
   DialogTitle,
   Button,
   Box,
-  Tooltip
+  Tooltip,
+  Chip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import EditIcon from '@mui/icons-material/Edit';
+import StarIcon from '@mui/icons-material/Star';
 import { useBudget } from './BudgetContext';
 
 export default function BudgetSubcategory({ categoryId, subcategory }) {
   const {
     updateSubcategoryAmount,
     updateSubcategoryName,
+    updateSubcategoryClassification,
     deleteSubcategory,
     moveSubcategoryUp,
     moveSubcategoryDown
@@ -111,6 +114,11 @@ export default function BudgetSubcategory({ categoryId, subcategory }) {
     moveSubcategoryDown(categoryId, subcategory.id);
   };
 
+  const handleToggleClassification = () => {
+    const newClassification = subcategory.classification === 'want' ? 'need' : 'want';
+    updateSubcategoryClassification(categoryId, subcategory.id, newClassification);
+  };
+
   return (
     <>
       <ListItem
@@ -161,6 +169,36 @@ export default function BudgetSubcategory({ categoryId, subcategory }) {
                   sx={{ cursor: 'pointer', flexGrow: 1 }}
                 >
                   {subcategory.name}
+                  {subcategory.classification === 'want' ? (
+                    <Tooltip title="Click to mark as Need">
+                      <Chip
+                        icon={<StarIcon />}
+                        label="Want"
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleClassification();
+                        }}
+                        sx={{ ml: 1, height: 20, fontSize: '0.7rem', cursor: 'pointer' }}
+                      />
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title="Click to mark as Want">
+                      <Chip
+                        label="Need"
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleClassification();
+                        }}
+                        sx={{ ml: 1, height: 20, fontSize: '0.7rem', cursor: 'pointer', opacity: 0.3 }}
+                      />
+                    </Tooltip>
+                  )}
                 </Typography>
                 <Tooltip title="Edit name">
                   <IconButton

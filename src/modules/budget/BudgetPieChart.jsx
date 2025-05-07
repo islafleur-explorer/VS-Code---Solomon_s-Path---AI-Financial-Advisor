@@ -42,24 +42,30 @@ export default function BudgetPieChart() {
       savings: 0,
     };
 
-    // Categorize each budget item
+    // Categorize each budget item based on classification
     budgetTemplate.forEach(category => {
       // Skip income categories
       if (category.type === 'income') return;
 
-      // Calculate total for this category
-      const categoryTotal = category.subcategories.reduce(
-        (sum, subcategory) => sum + (parseFloat(subcategory.amount) || 0),
-        0
-      );
-
-      // Assign to the appropriate bucket based on category type or ID
-      if (category.type === 'savings' || category.id === 'debt' || category.id === 'emergency_fund') {
+      // For savings and debt categories, add to savings bucket
+      if (category.type === 'savings' || category.id === 'debt') {
+        const categoryTotal = category.subcategories.reduce(
+          (sum, subcategory) => sum + (parseFloat(subcategory.amount) || 0),
+          0
+        );
         actual.savings += categoryTotal;
-      } else if (['housing', 'transportation', 'food', 'health', 'insurance', 'utilities', 'childcare'].includes(category.id)) {
-        actual.needs += categoryTotal;
       } else {
-        actual.wants += categoryTotal;
+        // For other categories, check each subcategory's classification
+        category.subcategories.forEach(subcategory => {
+          const amount = parseFloat(subcategory.amount) || 0;
+
+          // Use the classification field to determine if it's a want or need
+          if (subcategory.classification === 'want') {
+            actual.wants += amount;
+          } else {
+            actual.needs += amount;
+          }
+        });
       }
     });
 
