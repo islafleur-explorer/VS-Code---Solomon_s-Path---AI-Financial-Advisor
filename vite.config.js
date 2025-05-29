@@ -4,10 +4,18 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Set the base path to match your repository name
-  base: '/VS-Code---Solomon_s-Path---AI-Financial-Advisor/',
+  // Use relative base for better GitHub Pages compatibility
+  base: './',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-  }
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
+  server: {
+    port: 3000,
+  },
 })
