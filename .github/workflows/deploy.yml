@@ -5,8 +5,22 @@ on:
     branches:
       - main
 
+# Add permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -16,23 +30,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "islafleur-explorer"
-          git config --global user.email "209201765+islafleur-explorer@users.noreply.github.com"
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build application
         run: npm run build
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload dist folder (or whatever your build output folder is)
+          path: './dist'
+
       - name: Deploy to GitHub Pages
-        run: |
-          git checkout --orphan gh-pages
-          git rm -rf .
-          cp -r dist/. .
-          git add .
-          git commit -m "Deploy to GitHub Pages"
-          git push origin gh-pages --force
+        id: deployment
+        uses: actions/deploy-pages@v4
