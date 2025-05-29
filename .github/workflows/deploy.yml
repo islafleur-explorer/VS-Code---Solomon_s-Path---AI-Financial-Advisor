@@ -17,6 +17,11 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "islafleur-explorer"
+          git config --global user.email "209201765+islafleur-explorer@users.noreply.github.com"
+
       - name: Install dependencies
         run: npm install
 
